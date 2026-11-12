@@ -1,0 +1,19 @@
+{
+  "name": "telugu-assembly-translate",
+  "version": "0.1.0",
+  "description": "Live English-to-Telugu sermon translation for a local assembly. Speaker's English speech is transcribed in the browser and translated live to each listener's chosen language on their own phone.",
+  "type": "module",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "express": "^4.19.2",
+    "google-translate-api-x": "^10.7.1",
+    "qrcode": "^1.5.3",
+    "socket.io": "^4.7.5"
+  }
+}

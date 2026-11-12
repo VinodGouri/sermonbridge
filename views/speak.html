@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Speaker — Live Translate</title>
+  <link rel="stylesheet" href="/css/app.css" />
+</head>
+<body>
+  <div class="wrap">
+    <h1>Speaker control</h1>
+    <p class="sub">Speak in English. Listeners read it live in their language.</p>
+
+    <div class="panel">
+      <div class="row">
+        <div>
+          <label for="sourceLang">Spoken language</label>
+          <select id="sourceLang">
+            <option value="en-IN">English (India)</option>
+            <option value="en-US">English (US)</option>
+            <option value="en-GB">English (UK)</option>
+          </select>
+        </div>
+        <div id="keyWrap" style="display:none;">
+          <label for="speakerKey">Speaker key</label>
+          <input id="speakerKey" type="password" placeholder="shared key" />
+        </div>
+      </div>
+      <div style="margin-top:12px;" class="row">
+        <button id="startBtn">▶ Start streaming</button>
+        <button id="stopBtn" class="secondary" disabled>■ Stop</button>
+      </div>
+      <p id="status" class="hint" style="margin-top:10px;"></p>
+    </div>
+
+    <div class="panel">
+      <label>Service code (listeners enter this, or scan the QR)</label>
+      <div class="code" id="serviceCode">----</div>
+      <div id="qrBox" class="qr" style="margin-top:12px;"></div>
+      <p class="hint" id="joinLink" style="margin-top:10px;"></p>
+    </div>
+
+    <div class="panel">
+      <label>What you're saying (English)</label>
+      <ul id="transcript" class="stream"></ul>
+    </div>
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="/js/speak.js"></script>
+</body>
+</html>

@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Live Translation</title>
+  <link rel="stylesheet" href="/css/app.css" />
+</head>
+<body>
+  <div class="wrap">
+    <h1>Live translation</h1>
+    <p class="sub">సువార్త సందేశం — మీ భాషలో చదవండి</p>
+
+    <div class="panel" id="joinPanel">
+      <div class="row">
+        <div>
+          <label for="serviceCodeInput">Service code</label>
+          <input id="serviceCodeInput" inputmode="numeric" placeholder="e.g. 1234" />
+        </div>
+        <div>
+          <label for="langSelect">Your language</label>
+          <select id="langSelect"></select>
+        </div>
+      </div>
+      <div style="margin-top:12px;">
+        <button id="joinBtn">Join</button>
+      </div>
+    </div>
+
+    <div class="panel translation" id="translationPanel" style="display:none;">
+      <label>
+        <span id="liveTag"><span class="live-dot"></span>Live</span>
+        · <span id="langLabel"></span>
+        · code <span id="codeLabel"></span>
+        · <a href="#" id="changeLink">change</a>
+      </label>
+      <ul id="translation" class="stream"></ul>
+      <p class="hint" id="waiting">Waiting for the speaker to begin…</p>
+    </div>
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="/js/languages.js"></script>
+  <script src="/js/listen.js"></script>
+</body>
+</html>

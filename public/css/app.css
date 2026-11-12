@@ -1,0 +1,104 @@
+:root {
+  --bg: #0f1419;
+  --panel: #1a222c;
+  --text: #eaf0f6;
+  --muted: #9bb0c3;
+  --accent: #4a9eff;
+  --accent-ink: #ffffff;
+  --border: #2a3744;
+  --live: #e5484d;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans Telugu", sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.5;
+}
+
+.wrap {
+  max-width: 820px;
+  margin: 0 auto;
+  padding: 16px;
+}
+
+h1 { font-size: 1.25rem; margin: 0 0 4px; }
+.sub { color: var(--muted); font-size: 0.9rem; margin: 0 0 16px; }
+
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 16px;
+}
+
+label { display: block; font-size: 0.85rem; color: var(--muted); margin: 0 0 6px; }
+
+select, input, button {
+  font: inherit;
+  color: var(--text);
+  background: #121a22;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 12px;
+  width: 100%;
+}
+
+button {
+  background: var(--accent);
+  color: var(--accent-ink);
+  border: none;
+  font-weight: 600;
+  cursor: pointer;
+}
+button.secondary { background: #243140; color: var(--text); }
+button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.row { display: flex; gap: 10px; align-items: end; flex-wrap: wrap; }
+.row > * { flex: 1; min-width: 160px; }
+
+.code {
+  font-size: 2rem;
+  font-weight: 700;
+  letter-spacing: 3px;
+  color: var(--accent);
+}
+
+.live-dot {
+  display: inline-block;
+  width: 10px; height: 10px;
+  border-radius: 50%;
+  background: var(--live);
+  margin-right: 6px;
+  animation: pulse 1.2s infinite;
+}
+@keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.3; } }
+
+/* Scrolling text area for transcript / translation */
+.stream {
+  height: 50vh;
+  overflow-y: auto;
+  background: #0b1016;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 14px;
+  margin: 0;
+  list-style: none;
+}
+.stream li {
+  padding: 8px 0;
+  border-bottom: 1px solid #16202a;
+}
+.stream li:last-child { border-bottom: none; }
+
+/* Big readable translation for listeners */
+.translation .stream li { font-size: 1.5rem; }
+.interim { color: var(--muted); font-style: italic; }
+
+.qr { background: #fff; padding: 10px; border-radius: 10px; width: 240px; max-width: 100%; }
+.hint { color: var(--muted); font-size: 0.85rem; }
+a { color: var(--accent); }
