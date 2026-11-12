@@ -119,6 +119,7 @@ function joinService(c, l) {
   els.langSelect.value = lang;
 
   els.stream.innerHTML = '';
+  lineMap.clear();
   waitingEl = document.createElement('li');
   waitingEl.className = 'waiting';
   waitingEl.textContent = 'Waiting for the speaker to begin…';
@@ -149,30 +150,54 @@ function showDots(on) {
   els.stream.appendChild(dotsEl);
 }
 
-// --- add a line ---
-function addLine({ source, text }) {
+// --- add or update a line ---
+// The server first sends a DRAFT of a sentence that grows as more speech arrives,
+// then the FINAL translation of the whole sentence. All messages for one sentence
+// share an `id`; `rev` orders them so a late draft never overwrites a newer one.
+const lineMap = new Map(); // id -> { li, tr, src, rev, final }
+let anonId = 0;
+
+function showLine(msg) {
+  const { id, rev = 0, source = '', text, final = true } = msg;
   if (waitingEl) { waitingEl.remove(); waitingEl = null; }
-  const nearBottom = els.stream.scrollHeight - els.stream.scrollTop - els.stream.clientHeight < 140;
+  const stick = els.stream.scrollHeight - els.stream.scrollTop - els.stream.clientHeight < 140;
 
-  const li = document.createElement('li');
-  li.className = 'line';
-  const tr = document.createElement('div'); tr.className = 'tr'; tr.textContent = text;
-  const src = document.createElement('div'); src.className = 'src'; src.textContent = source || '';
-  li.appendChild(tr); li.appendChild(src);
+  let entry = lineMap.get(id);
+  if (!entry) {
+    const li = document.createElement('li');
+    li.className = 'line';
+    const tr = document.createElement('div'); tr.className = 'tr';
+    const src = document.createElement('div'); src.className = 'src';
+    li.appendChild(tr); li.appendChild(src);
+    if (dotsEl && dotsEl.parentNode) els.stream.insertBefore(li, dotsEl);
+    else els.stream.appendChild(li);
+    entry = { li, tr, src, rev: -1, final: false };
+    lineMap.set(id, entry);
+    if (lineMap.size > 300) lineMap.delete(lineMap.keys().next().value);
+  }
 
-  if (dotsEl && dotsEl.parentNode) els.stream.insertBefore(li, dotsEl);
-  else els.stream.appendChild(li);
+  if (entry.final) return;                  // already settled
+  if (!final && rev <= entry.rev) return;   // stale draft that arrived late
+
+  entry.rev = rev;
+  entry.final = final;
+  entry.tr.textContent = text;
+  entry.src.textContent = source;
+  entry.li.classList.toggle('draft', !final);
 
   lastLine = { source, text };
-  if (nearBottom) els.stream.scrollTop = els.stream.scrollHeight;
-  if (speakOn) speak(text);
+  if (stick) els.stream.scrollTop = els.stream.scrollHeight;
+  if (final && speakOn) speak(text);        // read aloud only finished sentences
 }
-window.addLine = addLine; // handy for demos and tests
+// handy for demos and tests
+window.addLine = (l) => showLine({ id: 'demo' + (anonId++), text: l.text, source: l.source, final: true });
 
 socket.on('translation', (msg) => {
   if (!listening) return;
-  if (typeof msg === 'string') addLine({ source: '', text: msg });
-  else if (msg && typeof msg.text === 'string') addLine(msg);
+  if (typeof msg === 'string') showLine({ id: 'str' + (anonId++), text: msg });
+  else if (msg && typeof msg.text === 'string') {
+    showLine(msg.id === undefined ? { ...msg, id: 'u' + (anonId++) } : msg);
+  }
 });
 
 // --- read aloud (browser speech synthesis) ---

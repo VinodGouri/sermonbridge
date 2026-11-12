@@ -60,6 +60,18 @@ speaker page was opened with, so open the speaker page via that IP too.
 | `PORT`                 | Port to listen on (default 3000)                               |
 | `DEFAULT_SERVICE_CODE` | Fix the join code instead of auto-generating one              |
 | `SPEAKER_KEY`          | If set, the speaker must enter this key before streaming      |
+| `PAUSE_MS`             | Quiet time before a sentence is finalized (default 1500)      |
+| `MAX_WORDS`            | Force a sentence to close after this many words (default 45)  |
+
+## How sentences are delivered
+
+Speech arrives in short chunks cut by pauses, not by sentences. The server
+groups chunks into one growing sentence per service. Listeners first see a quick
+**draft** translation (slightly dimmed) that grows as you keep speaking, which is
+replaced in place by the **final** translation of the whole sentence when it ends
+or you pause for `PAUSE_MS`. The last few sentences are passed to the translator
+as background context; Google's free API ignores it, the Phase 3 AI translator
+will use it.
 
 ## Roadmap
 

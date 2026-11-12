@@ -132,6 +132,9 @@ select, input[type="text"], input:not([type]), input[inputmode] {
   color: var(--ink-soft);
 }
 .src-off .line .src { display: none; }
+/* A draft is still growing; it turns solid when the sentence is final. */
+.line.draft .tr { opacity: 0.72; }
+.line.draft .src { opacity: 0.8; }
 .waiting { color: var(--muted); font-size: 1.05rem; }
 
 .dots { display: flex; gap: 8px; padding: 4px 0; }

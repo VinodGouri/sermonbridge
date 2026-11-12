@@ -1,12 +1,18 @@
 // Live English -> Telugu (and other languages) sermon translation server.
 //
 // Flow:
-//   speaker page  --(English transcript via Web Speech API)-->  this server
-//   this server   --(translate to each language a listener chose)-->  listener phones
+//   speaker page  --(English chunks via Web Speech API)-->  this server
+//   this server   --(group chunks into sentences, translate)-->  listener phones
 //
 // Rooms (Socket.io):
 //   `${serviceCode}:transcript`  -> raw English transcript
 //   `${serviceCode}:${lang}`     -> translation for that language
+//
+// Sentence-aware delivery: speech arrives as short chunks cut by pauses, not by
+// sentences. Translating each chunk alone loses context. So the server groups
+// chunks into one growing sentence per service. Listeners first see a quick DRAFT
+// translation that grows as more chunks arrive, which is then replaced by the
+// FINAL translation of the whole sentence once it ends or the speaker pauses.
 
 import http from 'node:http';
 import path from 'node:path';
@@ -22,6 +28,13 @@ const VIEWS_DIR = path.join(__dirname, '..', 'views');
 
 const PORT = process.env.PORT || 3000;
 const SPEAKER_KEY = process.env.SPEAKER_KEY || '';
+
+// How long the speaker must be quiet before a sentence is finalized.
+const PAUSE_MS = Number(process.env.PAUSE_MS) || 1500;
+// Force a finalize after this many words so a long sentence never stalls.
+const MAX_WORDS = Number(process.env.MAX_WORDS) || 45;
+// How many earlier sentences are passed to the translator as background context.
+const CONTEXT_SENTENCES = 3;
 
 const app = express();
 const server = http.createServer(app);
@@ -62,7 +75,7 @@ app.get('/qr', async (req, res) => {
 // Defined after /qr, /speak and /listen so those keep working.
 app.get('/:lang([a-z]{2,3})', (req, res) => res.sendFile(path.join(VIEWS_DIR, 'listen.html')));
 
-// Which languages are currently being listened to for a service — derived from
+// Which languages are currently being listened to for a service, derived from
 // the Socket.io rooms, so we only spend translation calls on languages that
 // actually have someone listening.
 function activeLanguagesFor(serviceCode) {
@@ -77,38 +90,111 @@ function activeLanguagesFor(serviceCode) {
   return [...langs];
 }
 
+// ---------------------------------------------------------------------------
+// Sentence buffer, one per service code
+// ---------------------------------------------------------------------------
+const sessions = new Map();
+
+function getSession(code) {
+  let s = sessions.get(code);
+  if (!s) {
+    s = { nextId: 1, id: 0, rev: 0, text: '', timer: null, history: [], cache: new Map(), lastUsed: Date.now() };
+    s.id = s.nextId++;
+    sessions.set(code, s);
+  }
+  s.lastUsed = Date.now();
+  return s;
+}
+
+const wordCount = (t) => t.trim().split(/\s+/).filter(Boolean).length;
+const endsSentence = (t) => /[.?!]["')\]]?$/.test(t.trim());
+
+// Translate a snapshot of the sentence for every listening language and emit it.
+// `snap` is captured before any await, so new speech arriving meanwhile cannot
+// change what this call sends.
+async function publish(code, snap, rev, final) {
+  const langs = activeLanguagesFor(code);
+  await Promise.all(langs.map(async (lang) => {
+    let text;
+    if (lang === 'en') {
+      text = snap.source;
+    } else {
+      const hit = snap.cache.get(lang);
+      if (hit && hit.source === snap.source) {
+        text = hit.text; // the draft already translated exactly this text
+      } else {
+        try {
+          text = await translateText(snap.source, lang, snap.context);
+          snap.cache.set(lang, { source: snap.source, text });
+        } catch (err) {
+          console.error(`translate error [${lang}]: ${err.message}`);
+          return;
+        }
+      }
+    }
+    io.to(`${code}:${lang}`).emit('translation', { id: snap.id, rev, source: snap.source, text, final });
+  }));
+}
+
+function snapshot(s) {
+  return { id: s.id, source: s.text, cache: s.cache, context: s.history.slice(-CONTEXT_SENTENCES) };
+}
+
+// Close the current sentence: send its final translation and start a fresh one.
+function finalize(code) {
+  const s = sessions.get(code);
+  if (!s || !s.text) return;
+  clearTimeout(s.timer);
+  s.timer = null;
+  const snap = snapshot(s);
+  const rev = ++s.rev;
+  // Reset synchronously so chunks that arrive during translation start a new sentence.
+  s.history.push(s.text);
+  if (s.history.length > 20) s.history.shift();
+  s.id = s.nextId++;
+  s.text = '';
+  s.cache = new Map();
+  publish(code, snap, rev, true).catch((e) => console.error('publish error', e));
+}
+
+function addChunk(code, chunk) {
+  const s = getSession(code);
+  s.text = s.text ? `${s.text} ${chunk}` : chunk;
+  clearTimeout(s.timer);
+
+  if (endsSentence(s.text) || wordCount(s.text) >= MAX_WORDS) {
+    finalize(code);
+    return;
+  }
+  // Quick draft now, final after the speaker pauses.
+  publish(code, snapshot(s), ++s.rev, false).catch((e) => console.error('publish error', e));
+  s.timer = setTimeout(() => finalize(code), PAUSE_MS);
+}
+
+// Drop buffers for services that have been idle for a while.
+setInterval(() => {
+  const cutoff = Date.now() - 2 * 60 * 60 * 1000;
+  for (const [code, s] of sessions) {
+    if (!s.text && s.lastUsed < cutoff) sessions.delete(code);
+  }
+}, 10 * 60 * 1000).unref();
+
 io.on('connection', (socket) => {
   // Listener joins/leaves a language (or transcript) room.
   socket.on('join', (room) => { if (typeof room === 'string') socket.join(room); });
   socket.on('leave', (room) => { if (typeof room === 'string') socket.leave(room); });
 
-  // Speaker sends a finished line of English.
-  socket.on('transcriptReady', async ({ serviceCode, transcript, speakerKey } = {}) => {
-    if (!serviceCode || !transcript || !transcript.trim()) return;
+  // Speaker sends a chunk of English (a phrase between pauses).
+  socket.on('transcriptReady', ({ serviceCode, transcript, speakerKey } = {}) => {
+    if (!serviceCode || typeof transcript !== 'string' || !transcript.trim()) return;
     if (SPEAKER_KEY && speakerKey !== SPEAKER_KEY) return; // reject unauthorized speakers
 
     const text = cleanTranscript(transcript);
     if (!/[\p{L}\p{N}]/u.test(text)) return; // nothing left after removing filler
     if (/^(and|but|so|then|well|now|the|a)\W*$/i.test(text)) return; // lone connector fragment
 
-    // Send the raw English to anyone watching the transcript.
     io.to(`${serviceCode}:transcript`).emit('transcript', text);
-
-    // Translate once per language that has a listener, and fan out. Each
-    // message carries the English source so the page can show it under the line.
-    const langs = activeLanguagesFor(serviceCode);
-    await Promise.all(langs.map(async (lang) => {
-      if (lang === 'en') {
-        io.to(`${serviceCode}:en`).emit('translation', { source: text, text });
-        return;
-      }
-      try {
-        const translated = await translateText(text, lang);
-        io.to(`${serviceCode}:${lang}`).emit('translation', { source: text, text: translated });
-      } catch (err) {
-        console.error(`translate error [${lang}]: ${err.message}`);
-      }
-    }));
+    addChunk(String(serviceCode), text);
   });
 
   // A listener flagged the last line as wrong. For now it is logged so you can
@@ -127,4 +213,5 @@ server.listen(PORT, () => {
   console.log(`Live translate server running on http://localhost:${PORT}`);
   console.log(`  Speaker control page: http://localhost:${PORT}/speak`);
   console.log(`  Listener page:        http://localhost:${PORT}/listen`);
+  console.log(`  Sentence pause: ${PAUSE_MS} ms, max words: ${MAX_WORDS}`);
 });
