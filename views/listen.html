@@ -4,39 +4,82 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Live Translation</title>
-  <link rel="stylesheet" href="/css/app.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Telugu:wght@400;700&family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/css/listen.css" />
 </head>
 <body>
-  <div class="wrap">
-    <h1>Live translation</h1>
-    <p class="sub">సువార్త సందేశం — మీ భాషలో చదవండి</p>
+  <div class="page">
 
-    <div class="panel" id="joinPanel">
-      <div class="row">
-        <div>
-          <label for="serviceCodeInput">Service code</label>
-          <input id="serviceCodeInput" inputmode="numeric" placeholder="e.g. 1234" />
-        </div>
-        <div>
-          <label for="langSelect">Your language</label>
-          <select id="langSelect"></select>
-        </div>
+    <!-- Header bar -->
+    <header class="topbar">
+      <div class="brand">
+        <svg class="logo" width="40" height="40" viewBox="0 0 32 32" fill="none" aria-hidden="true">
+          <rect width="32" height="32" rx="9" fill="#0E1330"/>
+          <path d="M5 21c4-9 8-9 11 0s7 9 11 0" stroke="#F5B544" stroke-width="2.6" stroke-linecap="round" fill="none"/>
+        </svg>
+        <span class="brand-name">SermonBridge</span>
       </div>
-      <div style="margin-top:12px;">
-        <button id="joinBtn">Join</button>
-      </div>
-    </div>
+      <button id="menuBtn" class="icon-btn" aria-label="Open menu" aria-expanded="false" aria-controls="menu">
+        <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
+      </button>
 
-    <div class="panel translation" id="translationPanel" style="display:none;">
-      <label>
-        <span id="liveTag"><span class="live-dot"></span>Live</span>
-        · <span id="langLabel"></span>
-        · code <span id="codeLabel"></span>
-        · <a href="#" id="changeLink">change</a>
-      </label>
-      <ul id="translation" class="stream"></ul>
-      <p class="hint" id="waiting">Waiting for the speaker to begin…</p>
-    </div>
+      <div id="menu" class="menu" hidden>
+        <label for="langSelect">Language</label>
+        <select id="langSelect"></select>
+
+        <div class="menu-row">
+          <span>Text size</span>
+          <span class="size-btns">
+            <button id="sizeDown" type="button" aria-label="Smaller text">A−</button>
+            <button id="sizeUp" type="button" aria-label="Larger text">A+</button>
+          </span>
+        </div>
+
+        <label class="check">
+          <input id="showSource" type="checkbox" checked />
+          <span>Show English under each line</span>
+        </label>
+
+        <button id="changeCode" type="button" class="menu-link">Change service code</button>
+      </div>
+    </header>
+
+    <main class="shell">
+
+      <!-- Join -->
+      <section id="joinPanel" class="card join">
+        <h1>Join a service</h1>
+        <label for="codeInput">Service code</label>
+        <input id="codeInput" inputmode="numeric" autocomplete="off" placeholder="e.g. 4821" />
+        <label for="joinLang">Your language</label>
+        <select id="joinLang"></select>
+        <button id="joinBtn" type="button" class="primary">Join</button>
+      </section>
+
+      <!-- Live view -->
+      <section id="livePanel" class="card live" hidden>
+        <button id="shareBtn" class="share" type="button" aria-label="Share this service">
+          <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/></svg>
+        </button>
+        <ul id="stream" class="stream" aria-live="polite"></ul>
+      </section>
+
+      <!-- Controls -->
+      <div id="controls" class="controls" hidden>
+        <button id="muteBtn" class="round blue" type="button" aria-label="Read aloud is off" aria-pressed="false">
+          <svg id="muteIcon" width="30" height="30" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"></svg>
+        </button>
+        <button id="stopBtn" class="round red big" type="button" aria-label="Stop listening">
+          <svg id="stopIcon" width="38" height="38" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"></svg>
+        </button>
+        <button id="reportBtn" class="round grey" type="button" aria-label="Report a problem with the last line">
+          <svg width="30" height="30" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M4 3h16a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H9l-5 4v-4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"/><rect x="11" y="6.5" width="2.2" height="6" rx="1.1" fill="#9AA7C2"/><circle cx="12.1" cy="15" r="1.3" fill="#9AA7C2"/></svg>
+        </button>
+      </div>
+    </main>
+
+    <div id="toast" class="toast" role="status" hidden></div>
   </div>
 
   <script src="/socket.io/socket.io.js"></script>
