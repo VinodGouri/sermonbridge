@@ -45,10 +45,10 @@ const io = new Server(server, { maxHttpBufferSize: 1e7 }); // 10 MB for audio ch
 
 app.use(express.static(PUBLIC_DIR));
 
-// Listener page is the default. Speaker control page lives at /speak.
-app.get('/', (req, res) => res.sendFile(path.join(VIEWS_DIR, 'listen.html')));
-app.get('/listen', (req, res) => res.sendFile(path.join(VIEWS_DIR, 'listen.html')));
+// Speaker control page is the default landing page. Listener page lives at /listen.
+app.get('/', (req, res) => res.sendFile(path.join(VIEWS_DIR, 'speak.html')));
 app.get('/speak', (req, res) => res.sendFile(path.join(VIEWS_DIR, 'speak.html')));
+app.get('/listen', (req, res) => res.sendFile(path.join(VIEWS_DIR, 'listen.html')));
 
 // Remove spoken filler ("uh", "um") so listeners do not get lines like "And, uh,".
 const FILLER = /\b(?:uh+|um+|uhm+|erm?|hmm+)\b,?/gi;

@@ -28,7 +28,9 @@ sessionStorage.setItem('serviceCode', serviceCode);
 serviceCodeEl.textContent = serviceCode;
 
 const listenUrl = `${location.origin}/listen?id=${serviceCode}`;
-joinLink.innerHTML = `Listeners open: <a href="${listenUrl}" target="_blank">${listenUrl}</a>`;
+const directListenBtn = document.getElementById('directListenBtn');
+if (directListenBtn) directListenBtn.href = listenUrl;
+joinLink.innerHTML = `Listeners join link: <a href="${listenUrl}" target="_blank">${listenUrl}</a>`;
 fetch(`/qr?id=${encodeURIComponent(serviceCode)}`)
   .then((r) => r.text())
   .then((svg) => { qrBox.innerHTML = svg; })
