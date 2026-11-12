@@ -39,6 +39,7 @@ const MAX_WORDS = Number(process.env.MAX_WORDS) || 45;
 const CONTEXT_SENTENCES = 3;
 
 const app = express();
+app.enable('trust proxy');
 const server = http.createServer(app);
 const io = new Server(server, { maxHttpBufferSize: 1e7 }); // 10 MB for audio chunks
 
