@@ -1,7 +1,7 @@
 // Live English -> Telugu (and other languages) sermon translation server.
 //
 // Flow:
-//   speaker page  --(English chunks via Web Speech API)-->  this server
+//   speaker page  --(English chunks via Web Speech API or Deepgram)-->  this server
 //   this server   --(group chunks into sentences, translate)-->  listener phones
 //
 // Rooms (Socket.io):
@@ -14,6 +14,7 @@
 // translation that grows as more chunks arrive, which is then replaced by the
 // FINAL translation of the whole sentence once it ends or the speaker pauses.
 
+import 'dotenv/config';
 import http from 'node:http';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -21,6 +22,7 @@ import express from 'express';
 import { Server } from 'socket.io';
 import QRCode from 'qrcode';
 import { translateText } from './translate.js';
+import { DeepgramSession } from './deepgram.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PUBLIC_DIR = path.join(__dirname, '..', 'public');
@@ -38,7 +40,7 @@ const CONTEXT_SENTENCES = 3;
 
 const app = express();
 const server = http.createServer(app);
-const io = new Server(server);
+const io = new Server(server, { maxHttpBufferSize: 1e7 }); // 10 MB for audio chunks
 
 app.use(express.static(PUBLIC_DIR));
 
@@ -195,6 +197,63 @@ io.on('connection', (socket) => {
 
     io.to(`${serviceCode}:transcript`).emit('transcript', text);
     addChunk(String(serviceCode), text);
+  });
+
+  // ---------------------------------------------------------------------------
+  // Deepgram live STT – browser streams raw audio → server → Deepgram
+  // ---------------------------------------------------------------------------
+  let dgSession = null;
+
+  socket.on('deepgram:start', async ({ serviceCode, speakerKey, language } = {}) => {
+    if (!serviceCode) return;
+    if (SPEAKER_KEY && speakerKey !== SPEAKER_KEY) return;
+
+    // Tear down any previous session for this socket.
+    if (dgSession) { dgSession.close(); dgSession = null; }
+
+    try {
+      dgSession = new DeepgramSession({
+        language: language || 'en-IN',
+        onTranscript: (transcript, isFinal) => {
+          if (!isFinal) return;  // only feed final transcripts into the pipeline
+          const text = cleanTranscript(transcript);
+          if (!/[\p{L}\p{N}]/u.test(text)) return;
+          if (/^(and|but|so|then|well|now|the|a)\W*$/i.test(text)) return;
+
+          io.to(`${serviceCode}:transcript`).emit('transcript', text);
+          addChunk(String(serviceCode), text);
+          // Echo back to the speaker page for display.
+          socket.emit('deepgram:transcript', { text, isFinal: true });
+        },
+        onError: (err) => {
+          console.error('[deepgram] error:', err.message || err);
+          socket.emit('deepgram:error', { message: String(err.message || err) });
+        },
+        onClose: () => {
+          socket.emit('deepgram:closed');
+        },
+      });
+
+      await dgSession.start();
+      socket.emit('deepgram:ready');
+      console.log(`[deepgram] session started for service ${serviceCode}`);
+    } catch (err) {
+      console.error('[deepgram] start failed:', err.message);
+      socket.emit('deepgram:error', { message: err.message });
+      dgSession = null;
+    }
+  });
+
+  socket.on('deepgram:audio', (data) => {
+    if (dgSession && data) dgSession.send(Buffer.from(data));
+  });
+
+  socket.on('deepgram:stop', () => {
+    if (dgSession) { dgSession.close(); dgSession = null; }
+  });
+
+  socket.on('disconnect', () => {
+    if (dgSession) { dgSession.close(); dgSession = null; }
   });
 
   // A listener flagged the last line as wrong. For now it is logged so you can

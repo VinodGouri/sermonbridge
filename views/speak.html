@@ -21,6 +21,13 @@
             <option value="en-GB">English (UK)</option>
           </select>
         </div>
+        <div>
+          <label for="sttMode">Speech engine</label>
+          <select id="sttMode">
+            <option value="deepgram">Deepgram (server)</option>
+            <option value="browser">Browser (Web Speech API)</option>
+          </select>
+        </div>
         <div id="keyWrap" style="display:none;">
           <label for="speakerKey">Speaker key</label>
           <input id="speakerKey" type="password" placeholder="shared key" />
